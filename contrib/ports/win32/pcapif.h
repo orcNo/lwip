@@ -19,6 +19,8 @@ extern "C" {
 
 struct netif;
 
+extern char target_tunn_name[1024];
+
 err_t pcapif_init    (struct netif *netif);
 void  pcapif_shutdown(struct netif *netif);
 #if !PCAPIF_RX_USE_THREAD

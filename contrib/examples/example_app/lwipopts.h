@@ -35,6 +35,7 @@
 #ifdef LWIP_OPTTEST_FILE
 #include "lwipopts_test.h"
 #else /* LWIP_OPTTEST_FILE */
+#include "proxy_ip.h"
 
 #define LWIP_IPV4                  1
 #define LWIP_IPV6                  1
@@ -322,5 +323,17 @@ void sys_check_core_locking(void);
 void lwip_example_app_platform_assert(const char *msg, int line, const char *file);
 #define LWIP_PLATFORM_ASSERT(x) lwip_example_app_platform_assert(x, __LINE__, __FILE__)
 #endif
+
+/*struct pbuf;*/
+/*struct netif;*/
+/*int gen_user_packet(struct pbuf* p, struct netif *netif);*/
+#define LWIP_HOOK_IP4_INPUT gen_user_packet
+#define PCAPIF_RX_USE_THREAD 0
+#define LWIP_SYS_ARCH_CHECK_NESTED_PROTECT 0
+
+#ifndef LWIP_DEBUG
+#define LWIP_DEBUG
+#endif
+/*#define MEM_LIBC_MALLOC 1*/
 
 #endif /* LWIP_LWIPOPTS_H */

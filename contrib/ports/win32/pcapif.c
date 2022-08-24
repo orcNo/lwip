@@ -181,6 +181,8 @@ struct pcapipf_pending_packet {
 };
 #endif /* PCAPIF_RECEIVE_PROMISCUOUS */
 
+pcap_t *g_adapter = NULL;
+
 /* Packet Adapter information */
 struct pcapif_private {
   void            *input_fn_arg;
@@ -202,6 +204,8 @@ struct pcapif_private {
   struct pcapipf_pending_packet *free_packets;
 #endif /* PCAPIF_RECEIVE_PROMISCUOUS */
 };
+
+char target_tunn_name[1024];
 
 #if PCAPIF_RECEIVE_PROMISCUOUS
 static void
@@ -514,42 +518,6 @@ pcapif_init_adapter(int adapter_num, void *arg)
     free(pa);
     return NULL; /* no adapters found */
   }
-  /* get number of adapters and adapter pointer */
-  for (d = alldevs, number_of_adapters = 0; d != NULL; d = d->next, number_of_adapters++) {
-    if (number_of_adapters == adapter_num) {
-      char *desc = d->description;
-      size_t len;
-
-      len = strlen(d->name);
-      LWIP_ASSERT("len < ADAPTER_NAME_LEN", len < ADAPTER_NAME_LEN);
-      strcpy(pa->name, d->name);
-
-      used_adapter = d;
-      /* format vendor description */
-      if (desc != NULL) {
-        len = strlen(desc);
-        if (strstr(desc, " ' on local host") != NULL) {
-          len -= 16;
-        }
-        else if (strstr(desc, "' on local host") != NULL) {
-          len -= 15;
-        }
-        if (strstr(desc, "Network adapter '") == desc) {
-          len -= 17;
-          desc += 17;
-        }
-        len = LWIP_MIN(len, ADAPTER_DESC_LEN-1);
-        while ((desc[len-1] == ' ') || (desc[len-1] == '\t')) {
-          /* don't copy trailing whitespace */
-          len--;
-        }
-        strncpy(pa->description, desc, len);
-        pa->description[len] = 0;
-      } else {
-        strcpy(pa->description, "<no_desc>");
-      }
-    }
-  }
 
 #ifndef PCAPIF_LIB_QUIET
   /* Scan the list printing every entry */
@@ -588,9 +556,51 @@ pcapif_init_adapter(int adapter_num, void *arg)
       strncpy(descBuf, desc, len);
       descBuf[len] = 0;
       printf("     Desc: \"%s\"\n", descBuf);
+      if (!strcmp(descBuf, target_tunn_name)) {
+          printf("---------- find wireguard tunnel");
+          adapter_num = i;
+      }
     }
   }
+  //adapter_num = 4;
 #endif /* PCAPIF_LIB_QUIET */
+  /* get number of adapters and adapter pointer */
+  for (d = alldevs, number_of_adapters = 0; d != NULL; d = d->next, number_of_adapters++) {
+      if (number_of_adapters == adapter_num) {
+          char* desc = d->description;
+          size_t len;
+
+          len = strlen(d->name);
+          LWIP_ASSERT("len < ADAPTER_NAME_LEN", len < ADAPTER_NAME_LEN);
+          strcpy(pa->name, d->name);
+
+          used_adapter = d;
+          /* format vendor description */
+          if (desc != NULL) {
+              len = strlen(desc);
+              if (strstr(desc, " ' on local host") != NULL) {
+                  len -= 16;
+              }
+              else if (strstr(desc, "' on local host") != NULL) {
+                  len -= 15;
+              }
+              if (strstr(desc, "Network adapter '") == desc) {
+                  len -= 17;
+                  desc += 17;
+              }
+              len = LWIP_MIN(len, ADAPTER_DESC_LEN - 1);
+              while ((desc[len - 1] == ' ') || (desc[len - 1] == '\t')) {
+                  /* don't copy trailing whitespace */
+                  len--;
+              }
+              strncpy(pa->description, desc, len);
+              pa->description[len] = 0;
+          }
+          else {
+              strcpy(pa->description, "<no_desc>");
+          }
+      }
+  }
 
   /* invalid adapter index -> check this after printing the adapters */
   if (adapter_num < 0) {
@@ -615,6 +625,7 @@ pcapif_init_adapter(int adapter_num, void *arg)
 
   /* Open the device */
   pa->adapter = pcapif_open_adapter(used_adapter->name, errbuf);
+  g_adapter = pa->adapter;
   if (pa->adapter == NULL) {
     printf("\nUnable to open the adapter. %s is not supported by pcap (\"%s\").\n", used_adapter->name, errbuf);
     /* Free the device list */
@@ -719,12 +730,23 @@ pcapif_low_level_init(struct netif *netif)
   u8_t my_mac_addr[ETH_HWADDR_LEN] = LWIP_MAC_ADDR_BASE;
   int adapter_num = PACKET_LIB_ADAPTER_NR;
   struct pcapif_private *pa;
+  //struct netif* tpnet = netif;
+  //int idx = 0;
 #ifdef PACKET_LIB_GET_ADAPTER_NETADDRESS
   ip4_addr_t netaddr;
 #define GUID_LEN 128
   char guid[GUID_LEN + 1];
 #endif /* PACKET_LIB_GET_ADAPTER_NETADDRESS */
 
+  //while (tpnet) {
+  //    if (!strcmp("WireGuard Tunnel", netif->name)) {
+  //        adapter_num = idx;
+  //        break;
+  //    }
+  //    idx++;
+  //}
+
+  //adapter_num = adapter_num == -1 ? PACKET_LIB_ADAPTER_NR : adapter_num;
   /* If 'state' is != NULL at this point, we assume it is an 'int' giving
      the index of the adapter to use (+ 1 because 0==NULL is invalid).
      This can be used to instantiate multiple PCAP drivers. */

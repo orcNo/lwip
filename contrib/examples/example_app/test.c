@@ -108,6 +108,7 @@
 
 /* include the port-dependent configuration */
 #include "lwipcfg.h"
+/*#include "proxy_ip.h"*/
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0
@@ -657,6 +658,9 @@ main_loop(void)
   sys_sem_free(&init_sem);
 #endif /* NO_SYS */
 
+  /*client_init();*/
+  /*client_auth();*/
+
 #if (LWIP_SOCKET || LWIP_NETCONN) && LWIP_NETCONN_SEM_PER_THREAD
   netconn_thread_init();
 #endif
@@ -758,6 +762,8 @@ int main(void)
   setvbuf(stdout, NULL,_IONBF, 0);
 
   main_loop();
+
+  free_data_list();
 
   return 0;
 }

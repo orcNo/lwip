@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#define IP_PACKET_MAX_SIZE 65535
+
 #define IP_HEADER_OFFSET_WORD 0
 #define IP_HEADER_IDEN_DWORD 2
 #define IP_HEADER_FLAG_WORD 6
@@ -316,7 +318,11 @@ void check_tcp(struct pbuf* pbuf) {
     mem_free(buf);
 }
 
-void check_ip_head(struct pbuf* pbuf) {
+#if 0
+void set_ip_head_sum(struct pbuf* pbuf) {
+#else
+void set_ip_head_sum(char* pbuf) {
+#endif
     uint32_t sum = 0;
     int idx = 0;
     /**int len = (pbuf->len - 14)/2; */
@@ -326,12 +332,15 @@ void check_ip_head(struct pbuf* pbuf) {
 
     buf = (uint16_t*)mem_malloc(sizeof(uint16_t) * len);
 
+#if 0
     memcpy(buf, (uint16_t*)pbuf->payload + 7, sizeof(uint16_t) * len);
+#else
+    memcpy(buf, (uint16_t*)pbuf, sizeof(uint16_t) * len);
+#endif
     if (len <= 0)
         return;
 
     sum = (~buf[0] & 0xFFFF);
-    res = buf[5];
     buf[5] = 0;
 
     for (idx = 1; idx < len; ++idx) {
@@ -341,9 +350,7 @@ void check_ip_head(struct pbuf* pbuf) {
         sum = (sum >> 16) + (sum & 0xFFFF);
     }
 
-    if (sum != res) {
-        DEBUG_PRINT("error package!");
-    }
+    buf[5] = sum;
     mem_free(buf);
 }
 
@@ -459,8 +466,6 @@ void send_packet(void *d) {
             unsigned int iplen;
             gen_ip_packet((void*)recv_buf, recv_len, ipbuf, &iplen, td);
             if (g_adapter) {
-                /*TODO*/
-                /*pcap_sendpacket(g_adapter, recv_buf, recv_len);*/
             }
         }
         if (close_conn)
@@ -476,6 +481,7 @@ end:
 
 void gen_ip_packet(void* data, uint32_t dlen, void* packet,uint32_t* plen, TcpData* td) {
     Ipv4Header iph;
+    char buf[IP_PACKET_MAX_SIZE];
     iph.vhl = 0x4 << 4 | 0x5;
     iph.service_type = 0x0;
     iph.total_len = htons(dlen / 4 + 0x5);
@@ -486,11 +492,9 @@ void gen_ip_packet(void* data, uint32_t dlen, void* packet,uint32_t* plen, TcpDa
     iph.checksum = 0;/* check_ip_head(NULL); //TODO*/
     iph.saddr = td->saddr;
     iph.daddr = td->daddr;
-    
-    UNUSED(iph);
-    UNUSED(data);
-    UNUSED(packet);
-    UNUSED(plen);
-    UNUSED(td);
-    UNUSED(iph);
+
+    memcpy(buf, (const void*)&iph, sizeof(Ipv4Header));
+    memcpy(buf, data, sizeof(char) * dlen);
+    set_ip_head_sum(buf);
+    pcap_sendpacket(g_adapter, buf, dlen + 20);
 }

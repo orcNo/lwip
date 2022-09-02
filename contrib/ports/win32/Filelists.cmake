@@ -40,7 +40,10 @@ message(STATUS "WPCAP library: ${WPCAP}")
 message(STATUS "PACKET library: ${PACKET}")
 
 add_library(lwipcontribportwindows EXCLUDE_FROM_ALL ${lwipcontribportwindows_SRCS})
-target_include_directories(lwipcontribportwindows PRIVATE ${LWIP_INCLUDE_DIRS} "${WPDPACK_DIR}/include" ${LWIP_MBEDTLS_INCLUDE_DIRS})
+target_include_directories(lwipcontribportwindows PRIVATE ${LWIP_INCLUDE_DIRS} 
+	"${WPDPACK_DIR}/include"
+	${LWIP_MBEDTLS_INCLUDE_DIRS}
+	${LWIP_DIR}/contrib/ports/win32/npcap/Include)
 target_compile_options(lwipcontribportwindows PRIVATE ${LWIP_COMPILER_FLAGS})
 target_compile_definitions(lwipcontribaddons PRIVATE ${LWIP_DEFINITIONS} ${LWIP_MBEDTLS_DEFINITIONS})
 target_link_libraries(lwipcontribportwindows PUBLIC ${WPCAP} ${PACKET} ${LWIP_MBEDTLS_LINK_LIBRARIES})

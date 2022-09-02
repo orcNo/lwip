@@ -205,7 +205,7 @@ struct pcapif_private {
 #endif /* PCAPIF_RECEIVE_PROMISCUOUS */
 };
 
-char target_tunn_name[1024];
+char target_tunn_name[1024] = {0};
 
 #if PCAPIF_RECEIVE_PROMISCUOUS
 static void
@@ -514,7 +514,7 @@ pcapif_init_adapter(int adapter_num, void *arg)
   pa->input_fn_arg = arg;
 
   /* Retrieve the interfaces list */
-  if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+  if (pcap_findalldevs_ex("rpcap://", NULL,&alldevs, errbuf) == -1) {
     free(pa);
     return NULL; /* no adapters found */
   }
@@ -532,6 +532,10 @@ pcapif_init_adapter(int adapter_num, void *arg)
       if (strstr(devname, "\\Device\\") == devname) {
         /* windows: strip the first part */
         devname += 8;
+      }
+      if (strlen(target_tunn_name) && strstr(devname, target_tunn_name)) {
+          printf("---------- find wireguard tunnel: %s.\n", target_tunn_name);
+          adapter_num = i;
       }
     }
     printf("%2i: %s\n", i, devname);
@@ -556,10 +560,7 @@ pcapif_init_adapter(int adapter_num, void *arg)
       strncpy(descBuf, desc, len);
       descBuf[len] = 0;
       printf("     Desc: \"%s\"\n", descBuf);
-      if (!strcmp(descBuf, target_tunn_name)) {
-          printf("---------- find wireguard tunnel");
-          adapter_num = i;
-      }
+      d->addresses->addr->sa_data;
     }
   }
   //adapter_num = 4;

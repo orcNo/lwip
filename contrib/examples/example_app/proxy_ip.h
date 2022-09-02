@@ -1,7 +1,6 @@
 #ifndef _PROXY_IP_H
 #define _PROXY_IP_H
 
-#include "socks5.h"
 #ifndef SHANDLE
 #define SHANDLE void*
 #endif
@@ -10,25 +9,49 @@
 #define MAKE_DST(addr, port) ((((uint64_t)addr) << 16) | (port))
 #endif
 
-typedef struct _stDataList {
+#include <stdint.h>
+
+extern int g_sock;
+
+enum IPacketType {
+    IPT_ICMP = 1,
+    IPT_TCP = 6,
+    IPT_UDP = 17
+};
+
+#pragma pack(push, 1)
+typedef __declspec(align(2)) struct _stTcpData {
+    enum IPacketType type;
+    uint8_t* data;
+    uint32_t saddr;
+    uint32_t daddr;
+    uint16_t sport;
+    uint16_t dport;
     uint16_t len;
-    uint16_t curs;
+    uint16_t ident;
+} TcpData;
+
+__declspec(align(2)) struct _stDataList {
     uint16_t* idens;
     TcpData* datas;
-} DataList;
+    uint16_t len;
+    uint16_t curs;
+};
+typedef struct _stDataList DataList;
 
-typedef struct stConn {
+typedef __declspec(align(4)) struct _stConn {
     uint64_t dst;
-    uint32_t la; /*last active time*/
     SHANDLE conn;
+    uint32_t la; /*last active time*/
 } Conn;
 
-typedef struct _stConnList {
+typedef __declspec(align(2)) struct _stConnList {
     uint16_t len;
     uint16_t curs;
     Conn* data;
 } ConnList;
 
+#pragma pack(pop)
 extern DataList* g_list;
 extern uint32_t tcp_socks_addr[4];
 extern uint16_t tcp_socks_port;

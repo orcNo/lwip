@@ -13,8 +13,8 @@ extern "C" {
 	 * udp_port: udp传递的端口  ip4的话 前 12位置都为0, 12-16 位置存储ip4  
 	 */
 	__declspec(dllexport) int __stdcall start_listen(const char* tunn_name, unsigned __int32 len,
-						unsigned __int32 tcp_addr[4], unsigned __int16 tcp_port,
-						unsigned __int32 udp_addr[4], unsigned __int16 udp_port);
+						unsigned __int32 __stdcall tcp_addr[4], unsigned __int16 tcp_port,
+						unsigned __int32 __stdcall udp_addr[4], unsigned __int16 udp_port);
 	/**
 	 * 获取监听状态
 	 * 返回值：未监听为0， 其他为正在监听 

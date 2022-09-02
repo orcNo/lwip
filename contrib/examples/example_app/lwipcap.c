@@ -41,6 +41,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <sys/types.h>    
+#include <sys/stat.h>    
+#include <fcntl.h>
 
 /* lwIP core includes */
 #include "lwip/opt.h"
@@ -183,7 +186,10 @@ static struct netif slipif2;
 #endif /* USE_SLIPIF > 1 */
 #endif /* USE_SLIPIF */
 
+//#define printf(format, ...) fprintf(g_log_fd, format, __VA_ARGS__)
+
 ATOM run = 0;
+int g_log_fd = 0;
 //struct netif* g_netif = NULL;
 
 #if USE_PPP
@@ -783,7 +789,22 @@ extern "C" {
     __declspec(dllexport) int __stdcall start_listen(const char* tunn_name, unsigned __int32 len,
         unsigned __int32 tcp_addr[4], unsigned __int16 tcp_port,
         unsigned __int32 udp_addr[4], unsigned __int16 udp_port) {
-        sprintf(target_tunn_name, tunn_name);
+        FILE* log = 0;
+        int th_id;
+#if 0
+        char* log_path;
+
+        log_path = getenv("LWIPCAP_LOG_PATH");
+        if (!log_path || strlen(log_path) == 0) {
+            log_path = "./lwipcap.log";
+        }
+        log = open(log_path, O_WRONLY | O_CREAT | O_TRUNC);
+        if (!log) {
+            return -2;
+        }
+#endif
+        printf("start_listen. name: %s, len: %d.\n", tunn_name, len);
+        memcpy(target_tunn_name, tunn_name, sizeof(char) * len);
         memcpy(tcp_socks_addr, tcp_addr, sizeof(unsigned __int32)*4);
         tcp_socks_port = tcp_port;
         memcpy(udp_socks_addr, udp_addr, sizeof(unsigned __int32) * 4);
@@ -791,7 +812,7 @@ extern "C" {
         run = 1;
 
         sys_init();
-        return sys_thread_new("lwipcap_main", main_func, NULL, 512, 4);
+        return (sys_thread_new("lwipcap_main", main_func, NULL, 512, 4) == 0 ? -1 : 0);
     }
     __declspec(dllexport) int __stdcall listen_statu() {
         return run;

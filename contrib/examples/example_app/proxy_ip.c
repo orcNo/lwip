@@ -2,6 +2,7 @@
 /*#include "lwip/sockets.h"*/
 #include <pcap.h>
 
+#include "lwip/netif.h"
 #include "netif/etharp.h"
 #include "lwip/sys.h"
 
@@ -55,9 +56,12 @@ struct pcapif_private {
 /*DataList g_stList;*/
 DataList* g_list = NULL;
 ConnList* g_connList = NULL;
-
-/*extern struct netif* g_netif;*/
 extern pcap_t* g_adapter;
+extern struct netif netif;
+struct tapif {
+  /* Add whatever per-interface state that is needed here. */
+  int fd;
+};
 
 int g_socket = 0;
 
@@ -179,7 +183,7 @@ static int take_data(TcpData* td) {
     return 0;
 }
 #endif
-int gen_user_packet(struct pbuf* p, struct netif *netif)
+int gen_user_packet(struct pbuf* p, struct netif *ni)
 {
     unsigned char* ip = GET_IP_HEADER_PTR(p->payload);
     unsigned char ip_hlen = GET_IP_HLEN(ip);
@@ -198,7 +202,7 @@ int gen_user_packet(struct pbuf* p, struct netif *netif)
     TcpData* ptd;
     TcpData* ttd;
 
-    UNUSED(netif);
+    UNUSED(ni);
 
     if (type != IPT_ICMP && type != IPT_UDP && type != IPT_TCP)
         return 0;
@@ -321,13 +325,12 @@ void check_tcp(struct pbuf* pbuf) {
 #if 0
 void set_ip_head_sum(struct pbuf* pbuf) {
 #else
-void set_ip_head_sum(char* pbuf) {
+static void set_ip_head_sum(char* pbuf) {
 #endif
     uint32_t sum = 0;
     int idx = 0;
     /**int len = (pbuf->len - 14)/2; */
     int len = 10;
-    uint16_t res = 0;
     uint16_t* buf;
 
     buf = (uint16_t*)mem_malloc(sizeof(uint16_t) * len);
@@ -482,6 +485,13 @@ end:
 void gen_ip_packet(void* data, uint32_t dlen, void* packet,uint32_t* plen, TcpData* td) {
     Ipv4Header iph;
     char buf[IP_PACKET_MAX_SIZE];
+#if defined(__GNUC__) || defined(__GNUG__)
+  struct tapif *tapif;
+#endif
+
+    UNUSED(packet);
+    UNUSED(plen)
+
     iph.vhl = 0x4 << 4 | 0x5;
     iph.service_type = 0x0;
     iph.total_len = htons(dlen / 4 + 0x5);
@@ -496,5 +506,12 @@ void gen_ip_packet(void* data, uint32_t dlen, void* packet,uint32_t* plen, TcpDa
     memcpy(buf, (const void*)&iph, sizeof(Ipv4Header));
     memcpy(buf, data, sizeof(char) * dlen);
     set_ip_head_sum(buf);
-    pcap_sendpacket(g_adapter, buf, dlen + 20);
+#if defined(__GNUC__) || defined(__GNUG__)
+  tapif = (struct tapif *)netif.state;
+  write(tapif->fd, buf, dlen + 20);
+#elif defined(_MSC_VER)
+    pcap_sendpacket(g_adapter, (const u_char*)buf, dlen + 20);
+#else
+    UNUSED(buf);
+#endif
 }

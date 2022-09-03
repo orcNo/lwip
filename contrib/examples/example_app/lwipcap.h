@@ -1,9 +1,12 @@
 #ifndef __LWIP_CAP_H
 #define __LWIP_CAP_H
 
+#include "client.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 	/**
 	 * 开始lwipcap监听
 	 * tunn_name: wireguard tunnel描述，默认为 "WireGuard Tunnel"
@@ -12,18 +15,24 @@ extern "C" {
 	 * udp_addr: udp传递的ip
 	 * udp_port: udp传递的端口  ip4的话 前 12位置都为0, 12-16 位置存储ip4  
 	 */
-	__declspec(dllexport) int __stdcall start_listen(const char* tunn_name, unsigned __int32 len,
-						unsigned __int32 __stdcall tcp_addr[4], unsigned __int16 tcp_port,
-						unsigned __int32 __stdcall udp_addr[4], unsigned __int16 udp_port);
+#if defined (_MSC_VER)
+	 DLL_EXPORT int STDCALL start_listen(const char* tunn_name, uint32_t len,
+						uint32_t tcp_addr[4], uint16_t tcp_port,
+						uint32_t udp_addr[4], uint16_t udp_port);
+#else
+	 DLL_EXPORT int STDCALL start_listen(uint32_t tun_addr[4],
+						uint32_t tcp_addr[4], uint16_t tcp_port,
+						uint32_t udp_addr[4], uint16_t udp_port);
+#endif
 	/**
 	 * 获取监听状态
 	 * 返回值：未监听为0， 其他为正在监听 
 	 */
-	__declspec(dllexport) int __stdcall listen_statu();
+	DLL_EXPORT int STDCALL listen_statu(void);
 	/**
 	 * 停止监听
 	 */
-	__declspec(dllexport) void __stdcall stop_listen();
+	DLL_EXPORT void STDCALL stop_listen(void);
 #ifdef __cplusplus
 }
 #endif

@@ -1,6 +1,8 @@
 #ifndef _PROXY_IP_H
 #define _PROXY_IP_H
 
+#include <stdint.h>
+
 #ifndef SHANDLE
 #define SHANDLE void*
 #endif
@@ -9,8 +11,6 @@
 #define MAKE_DST(addr, port) ((((uint64_t)addr) << 16) | (port))
 #endif
 
-#include <stdint.h>
-
 extern int g_sock;
 
 enum IPacketType {
@@ -18,9 +18,15 @@ enum IPacketType {
     IPT_TCP = 6,
     IPT_UDP = 17
 };
-
+#if defined (_MSC_VER)
 #pragma pack(push, 1)
-typedef __declspec(align(2)) struct _stTcpData {
+#endif
+
+typedef 
+#if defined (_MSC_VER)
+__declspec(align(2)) 
+#endif
+struct _stTcpData {
     enum IPacketType type;
     uint8_t* data;
     uint32_t saddr;
@@ -29,29 +35,50 @@ typedef __declspec(align(2)) struct _stTcpData {
     uint16_t dport;
     uint16_t len;
     uint16_t ident;
-} TcpData;
+} TcpData 
+#if defined(__GNUC__) || defined(__GNUG__)
+__attribute__ ((aligned (2)))
+#endif
+;
 
-__declspec(align(2)) struct _stDataList {
+#if defined (_MSC_VER)
+__declspec(align(2))
+#endif
+struct _stDataList {
     uint16_t* idens;
     TcpData* datas;
     uint16_t len;
     uint16_t curs;
-};
+}
+#if defined(__GNUC__) || defined(__GNUG__)
+__attribute__ ((aligned (2)))
+#endif
+;
 typedef struct _stDataList DataList;
 
-typedef __declspec(align(4)) struct _stConn {
+typedef
+#if defined (_MSC_VER)
+__declspec(align(4))
+#endif
+struct _stConn {
     uint64_t dst;
     SHANDLE conn;
     uint32_t la; /*last active time*/
 } Conn;
 
-typedef __declspec(align(2)) struct _stConnList {
+typedef
+#if defined (_MSC_VER)
+__declspec(align(2))
+#endif
+struct _stConnList {
     uint16_t len;
     uint16_t curs;
     Conn* data;
 } ConnList;
 
+#ifdef __MSVC__
 #pragma pack(pop)
+#endif
 extern DataList* g_list;
 extern uint32_t tcp_socks_addr[4];
 extern uint16_t tcp_socks_port;

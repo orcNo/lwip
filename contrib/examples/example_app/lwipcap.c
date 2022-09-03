@@ -30,10 +30,13 @@
  * test.c - This file is part of lwIP test
  *
  */
+
+#if defined (_MSC_VER)
 #include <Windows.h>
 #include <BaseTsd.h>
 #include <WinDef.h>
 #include <WinNT.h>
+#endif
 
 /* C runtime includes */
 #include <stdio.h>
@@ -95,7 +98,7 @@
 
 #include "default_netif.h"
 
-//#include <threads.h>
+/*#include <threads.h>*/
 #if NO_SYS
 /* ... then we need information about the timer intervals: */
 #include "lwip/ip4_frag.h"
@@ -115,9 +118,10 @@
 #endif /* PPP_SUPPORT */
 
 /* include the port-dependent configuration */
+#include "lwipcap.h"
 #include "lwipcfg.h"
 #include "proxy_ip.h"
-#include "../pcapif.h"
+#include "netif/pcapif.h"
 
 #ifndef LWIP_EXAMPLE_APP_ABORT
 #define LWIP_EXAMPLE_APP_ABORT() 0
@@ -186,11 +190,17 @@ static struct netif slipif2;
 #endif /* USE_SLIPIF > 1 */
 #endif /* USE_SLIPIF */
 
-//#define printf(format, ...) fprintf(g_log_fd, format, __VA_ARGS__)
+/*#define printf(format, ...) fprintf(g_log_fd, format, __VA_ARGS__)*/
+
+#ifndef ATOM
+#define ATOM int
+#endif
 
 ATOM run = 0;
 int g_log_fd = 0;
-//struct netif* g_netif = NULL;
+struct pcap_t* g_adapter;
+static uint32_t g_tun_addr[4];
+/*struct netif* g_netif = NULL;*/
 
 #if USE_PPP
 static void
@@ -310,6 +320,7 @@ link_callback(struct netif *state_netif)
 }
 #endif /* LWIP_NETIF_LINK_CALLBACK */
 
+
 /* This function initializes all network interfaces */
 static void
 test_netif_init(void)
@@ -369,9 +380,17 @@ test_netif_init(void)
 #elif USE_AUTOIP
   printf("Starting lwIP, local interface IP is autoip-enabled\n");
 #else /* USE_DHCP */
-  LWIP_PORT_INIT_GW(&gw);
-  LWIP_PORT_INIT_IPADDR(&ipaddr);
-  LWIP_PORT_INIT_NETMASK(&netmask);
+  if (g_tun_addr[4] != 0) {
+      IPV4_ADD(gw, g_tun_addr[4] >> 24, g_tun_addr[4] & 0xFFFFFF >> 16
+              , g_tun_addr[4] & 0xFFFF >> 8, 1)
+      IPV4_ADD(gw, g_tun_addr[4] >> 24, g_tun_addr[4] & 0xFFFFFF >> 16
+              , g_tun_addr[4] & 0xFFFF >> 8, g_tun_addr[4] & 0xFF)
+      LWIP_PORT_INIT_NETMASK(&netmask);
+  } else {
+    LWIP_PORT_INIT_GW(&gw);
+    LWIP_PORT_INIT_IPADDR(&ipaddr);
+    LWIP_PORT_INIT_NETMASK(&netmask);
+  }
   printf("Starting lwIP, local interface IP is %s\n", ip4addr_ntoa(&ipaddr));
 #endif /* USE_DHCP */
 #endif /* USE_ETHERNET_TCPIP */
@@ -381,7 +400,7 @@ test_netif_init(void)
 
 #if LWIP_IPV4
   init_default_netif(&ipaddr, &netmask, &gw);
-  //g_netif = &netif_default;
+  /*g_netif = &netif_default;*/
 #else
   init_default_netif();
 #endif
@@ -479,6 +498,7 @@ test_netif_init(void)
   printf("SLIP2 ip6 linklocal address: ");
   ip6_addr_debug_print(0xFFFFFFFF & ~LWIP_DBG_HALT, netif_ip6_addr(&slipif2, 0));
   printf("\n");
+  g_adapter  = loop_netif;
 #endif /* LWIP_IPV6 */
 #if LWIP_NETIF_STATUS_CALLBACK
   netif_set_status_callback(&slipif2, status_callback);
@@ -673,8 +693,8 @@ main_loop(void)
   sys_sem_free(&init_sem);
 #endif /* NO_SYS */
 
-  //client_init();
-  //client_auth();
+  /*client_init();*/
+  /*client_auth();*/
 
 #if (LWIP_SOCKET || LWIP_NETCONN) && LWIP_NETCONN_SEM_PER_THREAD
   netconn_thread_init();
@@ -763,11 +783,12 @@ main_loop(void)
 }
 
 #if USE_PPP && PPPOS_SUPPORT
-int main(int argc, char **argv)
+static void main_func(int argc, char **argv)
 #else /* USE_PPP && PPPOS_SUPPORT */
-int main_func(void)
+static void main_func(void* arg)
 #endif /* USE_PPP && PPPOS_SUPPORT */
 {
+  LWIP_UNUSED_ARG(arg);
 #if USE_PPP && PPPOS_SUPPORT
   if(argc > 1) {
     sio_idx = (u8_t)atoi(argv[1]);
@@ -780,18 +801,28 @@ int main_func(void)
   main_loop();
 
   free_data_list();
-
-  return 0;
 }
+
+
 #ifdef __cplusplus
 extern "C" {
+#if defined (_MSC_VER)
 #endif
-    __declspec(dllexport) int __stdcall start_listen(const char* tunn_name, unsigned __int32 len,
-        unsigned __int32 tcp_addr[4], unsigned __int16 tcp_port,
-        unsigned __int32 udp_addr[4], unsigned __int16 udp_port) {
-        FILE* log = 0;
-        int th_id;
+    DLL_EXPORT int STDCALL start_listen(const char* tunn_name, uint32_t len,
+        uint32_t tcp_addr[4], uint16_t tcp_port,
+        uint32_t udp_addr[4], uint16_t udp_port) {
+        
+        printf("start_listen. name: %s, len: %d.\n", tunn_name, len);
+        /*memcpy(target_tunn_name, tunn_name, sizeof(char) * len);*/
+#else
+	 DLL_EXPORT int STDCALL start_listen(uint32_t tun_addr[4],
+						uint32_t tcp_addr[4], uint16_t tcp_port,
+						uint32_t udp_addr[4], uint16_t udp_port) {
+        memcpy(g_tun_addr, tun_addr, sizeof(uint32_t)*4);
+#endif
 #if 0
+        int th_id;
+        FILE* log = 0;
         char* log_path;
 
         log_path = getenv("LWIPCAP_LOG_PATH");
@@ -803,22 +834,21 @@ extern "C" {
             return -2;
         }
 #endif
-        printf("start_listen. name: %s, len: %d.\n", tunn_name, len);
-        memcpy(target_tunn_name, tunn_name, sizeof(char) * len);
-        memcpy(tcp_socks_addr, tcp_addr, sizeof(unsigned __int32)*4);
+        memcpy(tcp_socks_addr, tcp_addr, sizeof(uint32_t)*4);
         tcp_socks_port = tcp_port;
-        memcpy(udp_socks_addr, udp_addr, sizeof(unsigned __int32) * 4);
+        memcpy(udp_socks_addr, udp_addr, sizeof(uint32_t) * 4);
         udp_socks_port = udp_port;
         run = 1;
 
         sys_init();
         return (sys_thread_new("lwipcap_main", main_func, NULL, 512, 4) == 0 ? -1 : 0);
     }
-    __declspec(dllexport) int __stdcall listen_statu() {
+
+    DLL_EXPORT int STDCALL listen_statu(void) {
         return run;
     }
 
-    __declspec(dllexport) void __stdcall stop_listen() {
+    DLL_EXPORT void STDCALL stop_listen(void) {
         run = 0;
     }
 #ifdef __cplusplus
